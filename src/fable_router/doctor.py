@@ -13,8 +13,13 @@ from .adapters.dashscope import is_configured as dashscope_configured
 
 def _run(cmd: list[str], timeout: float = 15.0) -> tuple[bool, str]:
     try:
+        # stdin=DEVNULL es OBLIGATORIO: sin esto los hijos heredan el stdin del
+        # server MCP (el pipe JSON-RPC con Claude Code); opencode/codex se
+        # quedan leyendo ese pipe que nunca cierra -> subprocess.run no retorna
+        # -> la tool cuelga -> la sesión entera de Claude Code muere.
         proc = subprocess.run(
             cmd, shell=(os.name == "nt"), capture_output=True, text=True,
+            stdin=subprocess.DEVNULL,
             timeout=timeout, encoding="utf-8", errors="replace",
         )
         return proc.returncode == 0, (proc.stdout + proc.stderr).strip()
