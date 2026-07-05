@@ -14,7 +14,7 @@ from typing import Callable
 
 import treequest as tq
 
-from .adapters import codex_cli, opencode_cli, vertex
+from .adapters import codex_cli, dashscope, opencode_cli, vertex
 from .adapters.base import Result
 from .ledger import record
 
@@ -42,6 +42,8 @@ def _dispatch(provider: str, model_key: str | None, prompt: str) -> Result:
         return opencode_cli.complete(model_key or "glm", prompt)
     if provider == "codex":
         return codex_cli.complete(prompt)
+    if provider == "dashscope":
+        return dashscope.complete(model_key or "qwen-max", prompt)
     raise ValueError(f"unknown provider: {provider}")
 
 

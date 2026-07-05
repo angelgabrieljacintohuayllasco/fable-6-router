@@ -3,9 +3,19 @@ from __future__ import annotations
 
 from fastmcp import FastMCP
 
-from . import ensemble, ledger, mcts, router
+from . import doctor, ensemble, ledger, mcts, router
 
 mcp = FastMCP("fable-6-router")
+
+
+@mcp.tool
+def setup_check() -> str:
+    """Corré esto primero. Revisa qué credenciales faltan (Vertex/gcloud,
+    OpenCode Go, Codex/ChatGPT, Qwen Model Studio opcional) y da el comando
+    exacto para arreglar cada una. Ninguna de esas se puede automatizar acá
+    (son logins interactivos/OAuth) — este check solo te dice qué correr.
+    """
+    return doctor.report()
 
 
 @mcp.tool

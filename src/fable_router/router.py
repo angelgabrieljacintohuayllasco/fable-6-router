@@ -3,15 +3,17 @@ First one that answers ok wins; cache is checked before each hop.
 """
 from __future__ import annotations
 
-from .adapters import codex_cli, opencode_cli, vertex
+from .adapters import codex_cli, dashscope, opencode_cli, vertex
 from .adapters.base import Result
 from .classifier import classify
 from .ledger import record
 from . import cache
 
 # (provider, model_key) — model_key is None for codex (single model per call).
+# "code" prueba primero Qwen 3.7 Max real via DashScope (si DASHSCOPE_API_KEY
+# está seteada); si no, cae a Qwen 3.6 Plus via OpenCode Go.
 ROUTES: dict[str, list[tuple[str, str | None]]] = {
-    "code": [("opencode", "qwen"), ("opencode", "glm"), ("vertex", "gemini-pro")],
+    "code": [("dashscope", "qwen-max"), ("opencode", "qwen"), ("opencode", "glm"), ("vertex", "gemini-pro")],
     "reasoning": [("vertex", "gemini-pro"), ("codex", None), ("opencode", "glm")],
     "writing": [("codex", None), ("vertex", "gemini-pro"), ("opencode", "glm")],
     "extraction": [("vertex", "gemini-flash"), ("opencode", "glm")],
@@ -26,6 +28,8 @@ def _dispatch(provider: str, model_key: str | None, prompt: str) -> Result:
         return opencode_cli.complete(model_key or "glm", prompt)
     if provider == "codex":
         return codex_cli.complete(prompt)
+    if provider == "dashscope":
+        return dashscope.complete(model_key or "qwen-max", prompt)
     raise ValueError(f"unknown provider: {provider}")
 
 

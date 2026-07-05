@@ -38,21 +38,39 @@ request → [Clasificador barato] (Gemini Flash)
 | **Vertex AI** | `gcloud auth application-default login` (sin API key) | Gemini 3.1 Pro, Gemini 3 Flash |
 | **OpenCode Go** | login con `opencode auth login` (plan de pago) | GLM 5.1, Qwen 3.6 Plus, DeepSeek v4, Kimi K2.6, Minimax M2.7 |
 | **Codex CLI** | login con `codex login` (plan ChatGPT) | GPT-5.5 |
+| **Qwen Model Studio** (opcional) | API key gratis, env var `DASHSCOPE_API_KEY` | Qwen 3.7 Max (real, no via OpenCode) |
 
 Los adapters leen las credenciales que esas CLIs ya tienen guardadas — este
-proyecto nunca almacena ni ve tus API keys.
+proyecto nunca almacena ni ve tus API keys (salvo la de DashScope, que vos
+mismo ponés en `.env` y nunca se commitea).
 
 ## Instalación
 
 ```bash
 uv sync
-gcloud auth application-default login   # una vez, para Vertex
-opencode auth login                      # una vez, para GLM/Qwen/DeepSeek
-codex login                              # una vez, para GPT-5.5
+gcloud auth application-default login       # una vez, para Vertex
+opencode auth login -p opencode-go          # una vez, para GLM/Qwen/DeepSeek/Kimi/Minimax
+codex login                                  # una vez, para GPT-5.5 (abre OAuth de ChatGPT)
 ```
 
-Ajusta `PROJECT`/`LOCATION` en `src/fable_router/adapters/vertex.py` a tu
-proyecto de Google Cloud.
+Copiá `.env.example` a `.env` y poné tu `FABLE_ROUTER_GCP_PROJECT`. Opcional:
+`DASHSCOPE_API_KEY` para Qwen 3.7 Max real (ver abajo).
+
+**Ninguno de esos tres logins lo puede hacer este proyecto por vos** — son
+flujos interactivos/OAuth de cada CLI. Corré la tool `setup_check` (MCP) o
+`uv run python -c "from fable_router import doctor; print(doctor.report())"`
+para ver cuáles te faltan y el comando exacto de cada una.
+
+### Configurar Qwen Model Studio (opcional)
+
+OpenCode Go ya te da Qwen 3.6 Plus sin nada extra. Si además querés el
+Qwen 3.7 Max real, sacá una key gratis en
+[bailian.console.aliyun.com](https://bailian.console.aliyun.com/) (Model
+Studio) y ponela como `DASHSCOPE_API_KEY` en tu `.env`. Si tu key resulta
+ser workspace-scoped (pasarela MaaS regional en vez del endpoint global
+clásico), seteá también `FABLE_ROUTER_DASHSCOPE_BASE_URL` con tu
+`WorkspaceId` — ver comentario en `.env.example`. Sin esta key, el router
+cae automáticamente a Qwen vía OpenCode Go, nada se rompe.
 
 ## Uso
 
@@ -62,7 +80,8 @@ proyecto de Google Cloud.
 claude mcp add --scope user fable-6-router -- uv run --directory /ruta/al/repo python -m fable_router.server_mcp
 ```
 
-Expone las tools `ask`, `ask_ensemble`, `ask_deep` y `stats`.
+Expone las tools `setup_check` (correla primero), `ask`, `ask_ensemble`,
+`ask_deep` y `stats`.
 
 ### Como API OpenAI-compatible
 
