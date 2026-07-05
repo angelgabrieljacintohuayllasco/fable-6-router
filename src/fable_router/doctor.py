@@ -35,7 +35,10 @@ def check_opencode() -> tuple[bool, str]:
     # no la clave interna "opencode-go" de auth.json — no son el mismo string.
     ok, out = _run(["opencode", "auth", "list"])
     configured = ok and "opencode go" in out.lower()
-    fix = "opencode auth login -p opencode-go"
+    fix = (
+        "opencode auth login -p opencode-go "
+        "(si te muestra un selector de provider igual, elegi 'OpenCode Go', NO 'OpenCode Zen')"
+    )
     return configured, ("" if configured else fix)
 
 

@@ -61,6 +61,15 @@ flujos interactivos/OAuth de cada CLI. Corré la tool `setup_check` (MCP) o
 `uv run python -c "from fable_router import doctor; print(doctor.report())"`
 para ver cuáles te faltan y el comando exacto de cada una.
 
+> **Ojo con `opencode auth login`:** tanto "OpenCode Go" como "OpenCode Zen"
+> se autentican con una **API key** (no hay "iniciar sesión con tu
+> suscripción" separado) — la key se genera en
+> [opencode.ai/auth](https://opencode.ai/auth) y son planes/keys distintos.
+> Si el flag `-p opencode-go` no te salta directo al paso de la key, el
+> wizard te va a preguntar qué provider elegir: **elegí "OpenCode Go", no
+> "OpenCode Zen"**. Este proyecto solo usa Go (Zen quedó fuera porque, al
+> probarlo, la cuenta de referencia estaba sin créditos).
+
 ### Configurar Qwen Model Studio (opcional)
 
 OpenCode Go ya te da Qwen 3.6 Plus sin nada extra. Si además querés el
