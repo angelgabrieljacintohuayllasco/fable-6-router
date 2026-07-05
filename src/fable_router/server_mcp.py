@@ -1,9 +1,13 @@
-"""MCP fachada: expone el router como herramientas Claude Code puede llamar."""
+"""MCP fachada: expone el router como herramientas Claude Code puede llamar.
+
+Los submódulos pesados (treequest ~1s, google-genai ~1s, openai ~0.5s) se
+importan DENTRO de cada tool, no acá arriba: el handshake MCP con Claude Code
+debe responder rápido o el cliente marca el server como colgado. Con lazy
+imports el arranque queda en ~1s (solo fastmcp).
+"""
 from __future__ import annotations
 
 from fastmcp import FastMCP
-
-from . import doctor, ensemble, ledger, mcts, router
 
 mcp = FastMCP("fable-6-router")
 
@@ -15,6 +19,8 @@ def setup_check() -> str:
     exacto para arreglar cada una. Ninguna de esas se puede automatizar acá
     (son logins interactivos/OAuth) — este check solo te dice qué correr.
     """
+    from . import doctor
+
     return doctor.report()
 
 
@@ -25,6 +31,8 @@ def ask(prompt: str, task_type: str | None = None) -> str:
     task_type opcional: code, reasoning, writing, extraction, chat.
     Si se omite, un clasificador barato (Gemini Flash) lo decide.
     """
+    from . import router
+
     result = router.ask(prompt, task_type=task_type)
     if not result.ok:
         return f"[error] todos los proveedores fallaron: {result.error}"
@@ -37,6 +45,8 @@ def ask_ensemble(prompt: str) -> str:
     GLM 5.1, GPT-5.5) y sintetiza la mejor respuesta con Gemini 3.1 Pro. Más lento
     y costoso que `ask`, úsalo cuando la calidad importa más que la velocidad.
     """
+    from . import ensemble
+
     result = ensemble.ask_ensemble(prompt)
     if not result.ok:
         return f"[error] todos los proveedores fallaron: {result.error}"
@@ -50,6 +60,8 @@ def ask_deep(prompt: str, n_steps: int = 6) -> str:
     y caro (varias llamadas secuenciales) pero el de mayor calidad — úsalo solo
     para tareas realmente difíciles donde `ask` y `ask_ensemble` no bastan.
     """
+    from . import mcts
+
     result = mcts.ask_deep(prompt, n_steps=n_steps)
     if not result.ok:
         return f"[error] {result.error}"
@@ -59,6 +71,8 @@ def ask_deep(prompt: str, n_steps: int = 6) -> str:
 @mcp.tool
 def stats() -> str:
     """Muestra estadísticas de uso: llamadas, latencia, tokens y costo por modelo."""
+    from . import ledger
+
     rows = ledger.stats()
     if not rows:
         return "sin datos aún"

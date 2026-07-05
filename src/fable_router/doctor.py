@@ -74,10 +74,17 @@ _FUNCS = {
 
 
 def report() -> str:
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Los checks son subprocesos CLI lentos (gcloud ~2s, opencode ~2s, codex ~1s)
+    # — en serie suman 5-8s; en paralelo, el más lento.
+    with ThreadPoolExecutor(max_workers=len(CHECKS)) as pool:
+        futures = [pool.submit(_FUNCS[fn_name]) for _, fn_name in CHECKS]
+        results = [f.result() for f in futures]
+
     lines = ["Estado de credenciales:\n"]
     any_missing = False
-    for label, fn_name in CHECKS:
-        ok, fix = _FUNCS[fn_name]()
+    for (label, _), (ok, fix) in zip(CHECKS, results):
         mark = "OK" if ok else "FALTA"
         lines.append(f"[{mark}] {label}")
         if not ok:
