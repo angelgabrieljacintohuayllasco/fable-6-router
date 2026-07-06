@@ -26,6 +26,26 @@ MODELS = {
 _client: genai.Client | None = None
 
 
+def _adc_credentials():
+    """Carga las credenciales ADC directo del archivo, sin google.auth.default().
+
+    default() descubre el project id shelleando a `gcloud config get project`
+    SIN stdin protegido — dentro de un server MCP stdio ese hijo hereda el pipe
+    JSON-RPC y puede colgar la tool entera (visto en vivo: cmd.exe → gcloud.cmd
+    clavado bajo el server). load_credentials_from_file solo parsea el json.
+    """
+    import google.auth
+
+    if os.name == "nt":
+        adc = os.path.join(os.environ.get("APPDATA", ""), "gcloud", "application_default_credentials.json")
+    else:
+        adc = os.path.expanduser("~/.config/gcloud/application_default_credentials.json")
+    if not os.path.isfile(adc):
+        return None  # sin ADC local: genai.Client cae al descubrimiento default
+    credentials, _ = google.auth.load_credentials_from_file(adc)
+    return credentials
+
+
 def _get_client() -> genai.Client:
     global _client
     if _client is None:
@@ -33,7 +53,10 @@ def _get_client() -> genai.Client:
             raise RuntimeError(
                 "FABLE_ROUTER_GCP_PROJECT no está seteado (tu project id de Google Cloud)"
             )
-        _client = genai.Client(vertexai=True, project=PROJECT, location=LOCATION)
+        _client = genai.Client(
+            vertexai=True, project=PROJECT, location=LOCATION,
+            credentials=_adc_credentials(),
+        )
     return _client
 
 
