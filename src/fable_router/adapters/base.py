@@ -44,19 +44,36 @@ def run_ndjson_cli(
     CreateProcess cannot launch directly — shell=True is required. With a
     list argv, subprocess uses `list2cmdline` to quote each arg, so this is
     the safe, documented way to do it (not string-interpolation shell=True).
+
+    Timeout uses Popen + taskkill /T: with shell=True, subprocess.run(timeout)
+    only kills the intermediate cmd.exe — the node grandchild survives holding
+    the stdout/stderr pipes and the follow-up communicate() blocks forever
+    (deadlock observed live with `codex exec` > 180s inside the MCP server).
+    taskkill /T /F kills the whole tree so the pipes actually close.
     """
-    proc = subprocess.run(
+    proc = subprocess.Popen(
         cmd,
         shell=(os.name == "nt"),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        timeout=timeout,
         text=True,
         encoding="utf-8",
         errors="replace",
     )
-    for line in proc.stdout.splitlines():
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                stdin=subprocess.DEVNULL, capture_output=True,
+            )
+        else:
+            proc.kill()
+        proc.communicate()  # pipes now closed by the tree kill; reap and drop
+        raise
+    for line in stdout.splitlines():
         line = line.strip()
         if not line:
             continue
@@ -65,4 +82,4 @@ def run_ndjson_cli(
         except json.JSONDecodeError:
             continue
         line_handler(event)
-    return proc.stderr, proc.returncode
+    return stderr, proc.returncode

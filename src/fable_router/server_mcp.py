@@ -9,6 +9,13 @@ from __future__ import annotations
 
 from fastmcp import FastMCP
 
+# treequest arrastra numpy, cuya DLL C se CUELGA si el primer import ocurre
+# dentro de un AnyIO worker thread en Windows (loader lock; visto con py-spy:
+# worker congelado en numpy._core.multiarray create_module). Pre-cargarlo acá,
+# en el main thread antes del event loop, cuesta ~1s de arranque y elimina el
+# cuelgue. El resto de imports pesados sí pueden ser lazy (son HTTP, no DLL).
+import treequest as _preloaded_treequest  # noqa: F401, E402
+
 mcp = FastMCP("fable-6-router")
 
 

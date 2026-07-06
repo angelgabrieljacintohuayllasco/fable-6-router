@@ -20,11 +20,15 @@ from .ledger import record
 
 Candidate = tuple[str, str | None]
 
+# Sin codex a propósito: `codex exec` con reasoning xhigh tarda 1-3 min POR
+# LLAMADA y MCTS hace varias secuenciales — el tool se va a >10 min y el
+# cliente MCP muere antes. dashscope entra solo si hay DASHSCOPE_API_KEY
+# (falla rápido y el árbol sigue con las demás ramas si no).
 DEFAULT_ACTIONS: list[Candidate] = [
     ("vertex", "gemini-pro"),
     ("opencode", "glm"),
     ("opencode", "qwen"),
-    ("codex", None),
+    ("dashscope", "qwen-max"),
 ]
 
 
