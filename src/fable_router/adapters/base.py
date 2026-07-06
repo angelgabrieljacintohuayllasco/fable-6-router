@@ -1,10 +1,13 @@
 """Common interface every adapter implements, plus a shared NDJSON-subprocess helper."""
 from __future__ import annotations
 
+import glob
 import json
 import os
+import shutil
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -29,6 +32,37 @@ class AdapterError(RuntimeError):
     pass
 
 
+# Binarios nativos dentro del paquete npm, relativos a <npm>\node_modules.
+# Invocarlos directo evita cmd.exe por completo: pasar argumentos no confiables
+# (prompts con comillas, %, &) a un .cmd via shell es inyectable por diseño
+# (BatBadBut; la doc de Python lo marca como inseguro sin fix posible).
+_WINDOWS_NATIVE_BIN: dict[str, tuple[str, ...]] = {
+    "opencode": (r"opencode-ai\node_modules\opencode-windows-*\bin\opencode.exe",),
+    "codex": (r"@openai\codex\node_modules\@openai\codex-win32-*\vendor\*\bin\codex.exe",),
+}
+
+_resolved: dict[str, list[str]] = {}
+
+
+def _resolve_cli(name: str) -> list[str]:
+    """Resuelve un CLI npm a su exe nativo real (sin shim .cmd, sin cmd.exe)."""
+    if name in _resolved:
+        return _resolved[name]
+    argv = [name]
+    path = shutil.which(name)
+    if path:
+        argv = [path]
+        if os.name == "nt" and path.lower().endswith((".cmd", ".bat")):
+            modules = Path(path).parent / "node_modules"
+            for pattern in _WINDOWS_NATIVE_BIN.get(name, ()):
+                hits = glob.glob(str(modules / pattern))
+                if hits:
+                    argv = [hits[0]]
+                    break
+    _resolved[name] = argv
+    return argv
+
+
 def run_ndjson_cli(
     cmd: list[str],
     *,
@@ -40,20 +74,21 @@ def run_ndjson_cli(
     Feeds each parsed JSON line to `line_handler`. Returns (stderr_text, returncode).
     stdin is explicitly closed so CLIs that peek at stdin (codex, opencode) never block.
 
-    On Windows, `opencode`/`codex` are npm-installed `.cmd` shims, which
-    CreateProcess cannot launch directly — shell=True is required. With a
-    list argv, subprocess uses `list2cmdline` to quote each arg, so this is
-    the safe, documented way to do it (not string-interpolation shell=True).
+    cmd[0] se resuelve al binario nativo via _resolve_cli. shell=True queda solo
+    como último recurso si no se encontró exe (shim .cmd) — en ese caso los
+    args no confiables viajan por cmd.exe, evitarlo siempre que se pueda.
 
     Timeout uses Popen + taskkill /T: with shell=True, subprocess.run(timeout)
     only kills the intermediate cmd.exe — the node grandchild survives holding
     the stdout/stderr pipes and the follow-up communicate() blocks forever
     (deadlock observed live with `codex exec` > 180s inside the MCP server).
-    taskkill /T /F kills the whole tree so the pipes actually close.
+    taskkill /T /F also covers the native exes' own children.
     """
+    argv = _resolve_cli(cmd[0]) + cmd[1:]
+    needs_shell = os.name == "nt" and argv[0].lower().endswith((".cmd", ".bat"))
     proc = subprocess.Popen(
-        cmd,
-        shell=(os.name == "nt"),
+        argv,
+        shell=needs_shell,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
