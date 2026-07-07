@@ -6,18 +6,22 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 
-from .adapters import codex_cli, dashscope, opencode_cli, vertex
+from .adapters import claude_cli, codex_cli, dashscope, opencode_cli, vertex
 from .adapters.base import Result
 from .ledger import record
 
 Candidate = tuple[str, str | None]  # (provider, model_key)
 
 DEFAULT_CANDIDATES: list[Candidate] = [
+    ("claude", None),
     ("vertex", "gemini-pro"),
     ("opencode", "glm"),
     ("codex", None),
 ]
-DEFAULT_AGGREGATOR: Candidate = ("vertex", "gemini-pro")
+# Tesis Sakana fugu: quien sintetiza debe ser el modelo MÁS fuerte disponible,
+# si no el ensemble queda capado a la calidad del agregador. Claude (Opus 4.8
+# via suscripción) primero; Gemini 3.1 Pro de respaldo si el CLI falla.
+AGGREGATOR_CHAIN: list[Candidate] = [("claude", None), ("vertex", "gemini-pro")]
 
 _SYNTH_PROMPT = """Varios modelos de IA respondieron la misma pregunta. Sintetiza \
 la MEJOR respuesta posible: toma lo correcto de cada una, corrige errores si un \
@@ -44,23 +48,45 @@ def _dispatch(provider: str, model_key: str | None, prompt: str) -> Result:
         return codex_cli.complete(prompt)
     if provider == "dashscope":
         return dashscope.complete(model_key or "qwen-max", prompt)
+    if provider == "claude":
+        return claude_cli.complete(prompt, model=model_key or claude_cli.DEFAULT_MODEL)
     raise ValueError(f"unknown provider: {provider}")
+
+
+# Pa cuando el AGREGADOR es el modelo que llama la tool (Claude via MCP):
+# sin claude en los candidatos — la calidad Claude la pone el caller al
+# sintetizar, y meterlo también de candidato duplicaría consumo del plan.
+CALLER_AGGREGATED_CANDIDATES: list[Candidate] = [
+    ("vertex", "gemini-pro"),
+    ("opencode", "glm"),
+    ("dashscope", "qwen-max"),
+    ("codex", None),
+]
+
+
+def gather_candidates(
+    prompt: str, *, candidates: list[Candidate] | None = None
+) -> list[Result]:
+    """Fan-out paralelo sin agregación: devuelve las respuestas crudas de cada
+    modelo. El caller (idealmente el modelo más fuerte disponible) sintetiza."""
+    candidates = candidates or CALLER_AGGREGATED_CANDIDATES
+    with ThreadPoolExecutor(max_workers=len(candidates)) as pool:
+        futures = [pool.submit(_dispatch, p, m, prompt) for p, m in candidates]
+        results = [f.result() for f in futures]
+    for r in results:
+        record(r, mode="ensemble_candidate")
+    return results
 
 
 def ask_ensemble(
     prompt: str,
     *,
     candidates: list[Candidate] | None = None,
-    aggregator: Candidate = DEFAULT_AGGREGATOR,
+    aggregators: list[Candidate] | None = None,
 ) -> Result:
-    candidates = candidates or DEFAULT_CANDIDATES
+    aggregators = aggregators or AGGREGATOR_CHAIN
 
-    with ThreadPoolExecutor(max_workers=len(candidates)) as pool:
-        futures = [pool.submit(_dispatch, p, m, prompt) for p, m in candidates]
-        results = [f.result() for f in futures]
-
-    for r in results:
-        record(r, mode="ensemble_candidate")
+    results = gather_candidates(prompt, candidates=candidates or DEFAULT_CANDIDATES)
 
     ok_results = [r for r in results if r.ok]
     if not ok_results:
@@ -73,12 +99,15 @@ def ask_ensemble(
     )
     synth_prompt = _SYNTH_PROMPT.format(prompt=prompt, candidates_block=candidates_block)
 
-    agg_provider, agg_model = aggregator
-    synthesis = _dispatch(agg_provider, agg_model, synth_prompt)
-    record(synthesis, mode="ensemble_aggregate")
+    synthesis: Result | None = None
+    for agg_provider, agg_model in aggregators:
+        synthesis = _dispatch(agg_provider, agg_model, synth_prompt)
+        record(synthesis, mode="ensemble_aggregate")
+        if synthesis.ok:
+            break
 
-    if not synthesis.ok:
-        # Aggregation failed — fall back to the first successful candidate.
+    if synthesis is None or not synthesis.ok:
+        # Every aggregator failed — fall back to the first successful candidate.
         return ok_results[0]
 
     total_latency = sum(r.latency_s for r in results) + synthesis.latency_s

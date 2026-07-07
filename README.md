@@ -25,8 +25,11 @@ request → [Clasificador barato] (Gemini Flash)
 ```
 
 - **Router** (`router.py`) — mapea tipo de tarea → modelo, con cadena de fallback.
-- **Ensemble** (`ensemble.py`) — 3 modelos de vendors distintos responden en
-  paralelo; un agregador sintetiza la mejor respuesta (Mixture-of-Agents).
+- **Ensemble** (`ensemble.py`) — modelos de vendors distintos responden en
+  paralelo; el agregador sintetiza la mejor respuesta (Mixture-of-Agents).
+  El agregador es **Claude Opus** vía tu suscripción de Claude Code — la
+  tesis Sakana fugu: el ensemble solo rinde ≥ que su mejor miembro si quien
+  sintetiza es el modelo más fuerte disponible.
 - **AB-MCTS** (`mcts.py`) — envuelve TreeQuest: explora y refina candidatos en
   árbol en vez de solo pedir N respuestas independientes. Modo lento/caro,
   explícito, para tareas realmente difíciles.
@@ -35,6 +38,7 @@ request → [Clasificador barato] (Gemini Flash)
 
 | Proveedor | Cómo | Modelos |
 |---|---|---|
+| **Claude Code** | `claude` logueado con tu suscripción (sin API key) | Opus 4.8 (o el modelo de tu plan, `FABLE_ROUTER_CLAUDE_MODEL`) — **agregador del ensemble y rama top del MCTS** |
 | **Vertex AI** | `gcloud auth application-default login` (sin API key) | Gemini 3.1 Pro, Gemini 3 Flash |
 | **OpenCode Go** | login con `opencode auth login` (plan de pago) | GLM 5.1, Qwen 3.6 Plus, DeepSeek v4, Kimi K2.6, Minimax M2.7 |
 | **Codex CLI** | login con `codex login` (plan ChatGPT) | GPT-5.5 |
@@ -89,8 +93,17 @@ cae automáticamente a Qwen vía OpenCode Go, nada se rompe.
 claude mcp add --scope user fable-6-router -- uv run --directory /ruta/al/repo python -m fable_router.server_mcp
 ```
 
-Expone las tools `setup_check` (correla primero), `ask`, `ask_ensemble`,
-`ask_deep` y `stats`.
+Expone las tools `setup_check` (correla primero), `ask`, `ask_candidates`,
+`ask_ensemble`, `ask_deep` y `stats`.
+
+**El modo Sakana de verdad — el agregador sos vos:** si el cliente MCP es un
+modelo fuerte (Claude Opus/Fable via tu suscripción), usá `ask_candidates`:
+devuelve las respuestas crudas de todos los modelos y el modelo que llama
+sintetiza la final. Así el agregador es el modelo más fuerte que tenés — que
+es lo que hace que un ensemble rinda MÁS que su mejor miembro, no menos.
+`ask_ensemble` (agregación interna, Claude CLI → Gemini de fallback) queda
+para clientes que no son un modelo fuerte: la API OpenAI-compatible, scripts,
+otros hosts MCP.
 
 ### Como API OpenAI-compatible
 

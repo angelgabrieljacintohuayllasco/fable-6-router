@@ -47,10 +47,45 @@ def ask(prompt: str, task_type: str | None = None) -> str:
 
 
 @mcp.tool
+def ask_candidates(prompt: str) -> str:
+    """PREFERILA sobre ask_ensemble si VOS sos un modelo fuerte (Claude Opus/Fable).
+
+    Manda el prompt en paralelo a varios modelos (Gemini 3.1 Pro, GLM 5.1,
+    Qwen 3.7 Max, GPT-5.5) y devuelve TODAS las respuestas crudas etiquetadas,
+    SIN sintetizar. Vos, el modelo que llama, sos el agregador: compará las
+    respuestas, quedate con lo correcto de cada una, corregí donde una
+    contradiga a las demás y entregá al usuario UNA respuesta final propia
+    (tesis Sakana: el ensemble rinde lo que rinde su agregador, y el agregador
+    más fuerte disponible sos vos). No muestres las respuestas crudas salvo
+    que el usuario las pida.
+    """
+    from . import ensemble
+
+    results = ensemble.gather_candidates(prompt)
+    ok = [r for r in results if r.ok]
+    if not ok:
+        errors = "; ".join(f"{r.provider}: {r.error}" for r in results)
+        return f"[error] todos los candidatos fallaron: {errors}"
+    parts = [
+        f"=== {r.provider}/{r.model} (latencia {r.latency_s:.0f}s) ===\n{r.text}"
+        for r in ok
+    ]
+    failed = [r for r in results if not r.ok]
+    if failed:
+        parts.append(
+            "=== candidatos caídos (ignoralos) ===\n"
+            + "\n".join(f"{r.provider}/{r.model}: {r.error}" for r in failed)
+        )
+    return "\n\n".join(parts)
+
+
+@mcp.tool
 def ask_ensemble(prompt: str) -> str:
-    """Manda el prompt en paralelo a 3 modelos de vendors distintos (Gemini 3.1 Pro,
-    GLM 5.1, GPT-5.5) y sintetiza la mejor respuesta con Gemini 3.1 Pro. Más lento
-    y costoso que `ask`, úsalo cuando la calidad importa más que la velocidad.
+    """Ensemble con agregación INTERNA (Claude CLI o Gemini sintetizan en el
+    server). Pensada pa clientes que no son un modelo fuerte (API OpenAI-compat,
+    scripts). Si vos sos Claude Opus/Fable llamando esta tool, usá mejor
+    `ask_candidates` y sintetizá vos — mismo costo, mejor agregador y sin
+    gastar el plan de Claude dos veces.
     """
     from . import ensemble
 
