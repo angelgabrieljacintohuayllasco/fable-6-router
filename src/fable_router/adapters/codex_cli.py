@@ -1,4 +1,9 @@
-"""ChatGPT 5.5 via the Codex CLI (ChatGPT plan Go, OAuth login already done).
+"""GPT-5.6 Terra via the Codex CLI (ChatGPT plan Go, OAuth login already done).
+
+Terra is the only GPT-5.6 tier the ChatGPT-account backend serves: Sol is
+rejected ("not supported when using Codex with a ChatGPT account") and Luna
+404s. Requires codex-cli >= 0.144.0 — older CLIs get "requires a newer
+version of Codex" from the server.
 
 `codex exec --json <prompt>` runs one non-interactive turn and streams
 newline-delimited JSON events. stdin is forced closed (see run_ndjson_cli) so
@@ -13,7 +18,7 @@ import time
 
 from .base import Result, run_ndjson_cli
 
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "gpt-5.6-terra"
 
 
 def complete(prompt: str, *, model: str = DEFAULT_MODEL, timeout: float = 180.0) -> Result:
