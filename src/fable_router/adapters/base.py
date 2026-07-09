@@ -39,6 +39,7 @@ class AdapterError(RuntimeError):
 _WINDOWS_NATIVE_BIN: dict[str, tuple[str, ...]] = {
     "opencode": (r"opencode-ai\node_modules\opencode-windows-*\bin\opencode.exe",),
     "codex": (r"@openai\codex\node_modules\@openai\codex-win32-*\vendor\*\bin\codex.exe",),
+    "claude": (r"@anthropic-ai\claude-code\bin\claude.exe",),
 }
 
 _resolved: dict[str, list[str]] = {}
@@ -68,6 +69,7 @@ def run_ndjson_cli(
     *,
     timeout: float,
     line_handler: Callable[[dict], None],
+    stdin_data: str | None = None,
 ) -> tuple[str, int]:
     """Run a CLI that streams newline-delimited JSON on stdout.
 
@@ -89,7 +91,7 @@ def run_ndjson_cli(
     proc = subprocess.Popen(
         argv,
         shell=needs_shell,
-        stdin=subprocess.DEVNULL,
+        stdin=subprocess.PIPE if stdin_data is not None else subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -97,7 +99,7 @@ def run_ndjson_cli(
         errors="replace",
     )
     try:
-        stdout, stderr = proc.communicate(timeout=timeout)
+        stdout, stderr = proc.communicate(input=stdin_data, timeout=timeout)
     except subprocess.TimeoutExpired:
         if os.name == "nt":
             subprocess.run(

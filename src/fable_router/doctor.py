@@ -54,6 +54,12 @@ def check_codex() -> tuple[bool, str]:
     return logged_in, ("" if logged_in else fix)
 
 
+def check_claude() -> tuple[bool, str]:
+    ok, _ = _run(["claude", "--version"])
+    fix = "instala Claude Code (npm i -g @anthropic-ai/claude-code) y corre `claude` para loguearte con tu suscripción"
+    return ok, ("" if ok else fix)
+
+
 def check_dashscope() -> tuple[bool, str]:
     ok = dashscope_configured()
     fix = (
@@ -64,13 +70,15 @@ def check_dashscope() -> tuple[bool, str]:
 
 
 CHECKS: list[tuple[str, str]] = [
+    ("Claude Code (Opus 4.8, agregador)", "check_claude"),
     ("Vertex AI (Gemini)", "check_vertex"),
     ("OpenCode Go (GLM/Qwen/DeepSeek/Kimi/Minimax)", "check_opencode"),
-    ("Codex CLI (GPT-5.5)", "check_codex"),
+    ("Codex CLI (GPT-5.6 Terra)", "check_codex"),
     ("Qwen Model Studio (opcional, qwen3.7-max)", "check_dashscope"),
 ]
 
 _FUNCS = {
+    "check_claude": check_claude,
     "check_vertex": check_vertex,
     "check_opencode": check_opencode,
     "check_codex": check_codex,

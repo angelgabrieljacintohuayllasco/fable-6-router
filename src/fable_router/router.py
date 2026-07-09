@@ -3,7 +3,7 @@ First one that answers ok wins; cache is checked before each hop.
 """
 from __future__ import annotations
 
-from .adapters import codex_cli, dashscope, opencode_cli, vertex
+from .adapters import claude_cli, codex_cli, dashscope, opencode_cli, vertex
 from .adapters.base import Result
 from .classifier import classify
 from .ledger import record
@@ -14,8 +14,8 @@ from . import cache
 # está seteada); si no, cae a Qwen 3.6 Plus via OpenCode Go.
 ROUTES: dict[str, list[tuple[str, str | None]]] = {
     "code": [("dashscope", "qwen-max"), ("opencode", "qwen"), ("opencode", "glm"), ("vertex", "gemini-pro")],
-    "reasoning": [("vertex", "gemini-pro"), ("codex", None), ("opencode", "glm")],
-    "writing": [("codex", None), ("vertex", "gemini-pro"), ("opencode", "glm")],
+    "reasoning": [("claude", None), ("vertex", "gemini-pro"), ("codex", None), ("opencode", "glm")],
+    "writing": [("claude", None), ("codex", None), ("vertex", "gemini-pro"), ("opencode", "glm")],
     "extraction": [("vertex", "gemini-flash"), ("opencode", "glm")],
     "chat": [("vertex", "gemini-flash"), ("opencode", "glm")],
 }
@@ -30,6 +30,8 @@ def _dispatch(provider: str, model_key: str | None, prompt: str) -> Result:
         return codex_cli.complete(prompt)
     if provider == "dashscope":
         return dashscope.complete(model_key or "qwen-max", prompt)
+    if provider == "claude":
+        return claude_cli.complete(prompt, model=model_key or claude_cli.DEFAULT_MODEL)
     raise ValueError(f"unknown provider: {provider}")
 
 

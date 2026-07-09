@@ -14,7 +14,7 @@ from typing import Callable
 
 import treequest as tq
 
-from .adapters import codex_cli, dashscope, opencode_cli, vertex
+from .adapters import claude_cli, codex_cli, dashscope, opencode_cli, vertex
 from .adapters.base import Result
 from .ledger import record
 
@@ -23,11 +23,12 @@ Candidate = tuple[str, str | None]
 # Sin codex a propósito: `codex exec` con reasoning xhigh tarda 1-3 min POR
 # LLAMADA y MCTS hace varias secuenciales — el tool se va a >10 min y el
 # cliente MCP muere antes. dashscope entra solo si hay DASHSCOPE_API_KEY
-# (falla rápido y el árbol sigue con las demás ramas si no).
+# (falla rápido y el árbol sigue con las demás ramas si no). claude (Opus 4.8
+# via suscripción, ~7s/llamada headless) es la rama de mayor calidad.
 DEFAULT_ACTIONS: list[Candidate] = [
+    ("claude", None),
     ("vertex", "gemini-pro"),
     ("opencode", "glm"),
-    ("opencode", "qwen"),
     ("dashscope", "qwen-max"),
 ]
 
@@ -48,6 +49,8 @@ def _dispatch(provider: str, model_key: str | None, prompt: str) -> Result:
         return codex_cli.complete(prompt)
     if provider == "dashscope":
         return dashscope.complete(model_key or "qwen-max", prompt)
+    if provider == "claude":
+        return claude_cli.complete(prompt, model=model_key or claude_cli.DEFAULT_MODEL)
     raise ValueError(f"unknown provider: {provider}")
 
 
