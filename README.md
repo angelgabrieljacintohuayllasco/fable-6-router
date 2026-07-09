@@ -1,8 +1,9 @@
 # Fable 6 Router
 
 Orquestador multi-modelo: **router inteligente + ensemble MoA + búsqueda AB-MCTS**,
-todo corriendo sobre las suscripciones de modelo que ya pagas (Vertex AI, OpenCode
-Go, ChatGPT/Codex) en vez de facturar por token contra APIs nuevas.
+todo corriendo sobre las suscripciones de modelo que ya pagas (Claude Code,
+Vertex AI, OpenCode Go, ChatGPT/Codex) en vez de facturar por token contra
+APIs nuevas.
 
 No compite con [OpenRouter](https://openrouter.ai) en tamaño de catálogo — compite
 en inteligencia de orquestación. OpenRouter enruta y factura; esto clasifica la
@@ -41,7 +42,7 @@ request → [Clasificador barato] (Gemini Flash)
 | **Claude Code** | `claude` logueado con tu suscripción (sin API key) | Opus 4.8 (o el modelo de tu plan, `FABLE_ROUTER_CLAUDE_MODEL`) — **agregador del ensemble y rama top del MCTS** |
 | **Vertex AI** | `gcloud auth application-default login` (sin API key) | Gemini 3.1 Pro, Gemini 3 Flash |
 | **OpenCode Go** | login con `opencode auth login` (plan de pago) | GLM 5.1, Qwen 3.6 Plus, DeepSeek v4, Kimi K2.6, Minimax M2.7 |
-| **Codex CLI** | login con `codex login` (plan ChatGPT) | GPT-5.5 |
+| **Codex CLI** | login con `codex login` (plan ChatGPT) | GPT-5.6 Terra (necesita codex-cli ≥ 0.144.0; Sol y Luna no están disponibles con cuenta ChatGPT) |
 | **Qwen Model Studio** (opcional) | API key gratis, env var `DASHSCOPE_API_KEY` | Qwen 3.7 Max (real, no via OpenCode) |
 
 Los adapters leen las credenciales que esas CLIs ya tienen guardadas — este
@@ -54,7 +55,7 @@ mismo ponés en `.env` y nunca se commitea).
 uv sync
 gcloud auth application-default login       # una vez, para Vertex
 opencode auth login -p opencode-go          # una vez, para GLM/Qwen/DeepSeek/Kimi/Minimax
-codex login                                  # una vez, para GPT-5.5 (abre OAuth de ChatGPT)
+codex login                                  # una vez, para GPT-5.6 Terra (abre OAuth de ChatGPT)
 ```
 
 Copiá `.env.example` a `.env` y poné tu `FABLE_ROUTER_GCP_PROJECT`. Opcional:
@@ -126,14 +127,36 @@ curl -X POST http://127.0.0.1:8420/v1/chat/completions \
 uv run python -m fable_router.smoke
 ```
 
+### Benchmarks (HumanEval)
+
+```bash
+uv run python -m fable_router.bench              # todos los brazos, 164 problemas
+uv run python -m fable_router.bench --arms claude --limit 40
+uv run python -m fable_router.bench --report     # tabla pass@1
+```
+
+Corre cada brazo (modelo individual y el router completo) contra HumanEval
+con scoring local automático. Pensado para cuotas de suscripción: cada
+resultado se checkpointea al instante en `bench_results/humaneval.jsonl`, un
+brazo que pega rate-limit se desactiva solo y los demás siguen, y re-correr
+el mismo comando retoma exactamente donde quedó. Con planes chicos (Claude
+Pro, Codex Go) la corrida completa toma 2-3 ventanas de cuota — nunca se
+pierde progreso.
+
 ## Gotchas conocidos
 
 - Gemini 3.x en Vertex necesita `location="global"` y `maxOutputTokens` alto
   (el thinking consume el mismo presupuesto — con valores bajos la respuesta
   sale vacía).
-- En Windows, `opencode`/`codex` son shims `.cmd`; los adapters usan
-  `subprocess` con `shell=True` (lista de argumentos, quoting seguro vía
-  `list2cmdline`) para poder ejecutarlos.
+- En Windows, `opencode`/`codex`/`claude` instalados por npm son shims
+  `.cmd`; los adapters los resuelven al `.exe` nativo dentro de
+  `node_modules` y solo caen a `shell=True` como último recurso (pasar
+  argumentos no confiables por `cmd.exe` es inyectable por diseño —
+  BatBadBut).
+- GPT-5.6: el backend de Codex con cuenta ChatGPT solo sirve **Terra**
+  (Sol responde "not supported when using Codex with a ChatGPT account" y
+  Luna da 404). Además exige codex-cli ≥ 0.144.0 — versiones viejas reciben
+  "requires a newer version of Codex". Actualizá con `codex update`.
 - Los CLIs de OpenCode/Codex cargan un contexto de agente fijo (~35k tokens)
   en cada llamada — no los uses para clasificación barata, solo para
   completions reales.

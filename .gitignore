@@ -12,6 +12,8 @@ wheels/
 # Local data (prompts, tokens, cost)
 *.sqlite
 *.sqlite-*
+bench_data/
+bench_results/
 
 # Secrets / local config
 .env
