@@ -12,9 +12,13 @@ mejora clave para código: el Verifier no es un LLM opinando, es EJECUCIÓN.
   Selección -> gana el candidato con más asserts. Nunca se sintetiza código
                mezclando soluciones: la síntesis LLM puede fusionar dos
                respuestas medio-correctas en una rota.
-  Thinker   -> Claude (Opus 4.8) solo entra si la verificación no decide
-               (sin código detectable, asserts inservibles o empate en 0):
-               sintetiza estilo MoA. Uso quirúrgico del modelo más caro.
+  Thinker   -> Claude Fable 5 (frontera, via suscripción de Claude Code —
+               verificado headless con `claude -p --model claude-fable-5`)
+               solo entra si la verificación no decide (sin código
+               detectable, asserts inservibles o empate en 0): sintetiza
+               estilo MoA con fallback a Opus 4.8. Uso quirúrgico del
+               modelo más caro. Cuando el caller MCP ya ES Fable 5 (Claude
+               Code), usá ask_candidates y el Thinker sos vos.
 
 Para prompts sin código la etapa de verificación no aplica y cae directo a
 síntesis — este modo brilla en tareas verificables.
@@ -41,6 +45,9 @@ WORKERS: list[Candidate] = [
     ("opencode", "glm52"),      # GLM 5.2
     ("dashscope", "qwen-max"),  # Qwen 3.7 Max
 ]
+
+# Thinker: el modelo más fuerte del plan, con fallback si el plan no lo sirve.
+JUDGES: list[Candidate] = [("claude", "claude-fable-5"), ("claude", None)]
 
 _TESTGEN_PROMPT = """A continuación hay una tarea de programación. Escribe entre 5 y 8 \
 `assert` de Python que verifiquen una implementación correcta de la función pedida. \
@@ -164,10 +171,12 @@ def ask_fable6(prompt: str) -> Result:
         if best_score > 0:
             return _finish(best_r.text, f"verified({best_r.model},{best_score}/{len(asserts)})")
 
-    # Verificación no decidió: Thinker (Claude) sintetiza estilo MoA.
+    # Verificación no decidió: Thinker (Fable 5, fallback Opus) sintetiza estilo MoA.
     block = "\n\n".join(f"[{r.provider}/{r.model}]\n{r.text}" for r in ok)
-    judge = _dispatch("claude", None, _SYNTH_PROMPT.format(prompt=prompt, candidates_block=block))
-    record(judge, mode="fable6_judge")
-    if judge.ok:
-        return _finish(judge.text, "judged", judge)
+    synth = _SYNTH_PROMPT.format(prompt=prompt, candidates_block=block)
+    for judge_provider, judge_model in JUDGES:
+        judge = _dispatch(judge_provider, judge_model, synth)
+        record(judge, mode="fable6_judge")
+        if judge.ok:
+            return _finish(judge.text, f"judged({judge.model})", judge)
     return _finish(ok[0].text, f"fallback({ok[0].model})")
