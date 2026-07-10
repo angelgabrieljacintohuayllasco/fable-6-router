@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 
-from .adapters import claude_cli, codex_cli, dashscope, opencode_cli, vertex
+from .adapters import claude_cli, codex_cli, copilot, dashscope, opencode_cli, vertex
 from .adapters.base import Result
 from .ledger import record
 
@@ -50,6 +50,8 @@ def _dispatch(provider: str, model_key: str | None, prompt: str) -> Result:
         return dashscope.complete(model_key or "qwen-max", prompt)
     if provider == "claude":
         return claude_cli.complete(prompt, model=model_key or claude_cli.DEFAULT_MODEL)
+    if provider == "copilot":
+        return copilot.complete(model_key or "sonnet", prompt)
     raise ValueError(f"unknown provider: {provider}")
 
 
@@ -57,6 +59,7 @@ def _dispatch(provider: str, model_key: str | None, prompt: str) -> Result:
 # sin claude en los candidatos — la calidad Claude la pone el caller al
 # sintetizar, y meterlo también de candidato duplicaría consumo del plan.
 CALLER_AGGREGATED_CANDIDATES: list[Candidate] = [
+    ("copilot", "sonnet"),
     ("vertex", "gemini-pro"),
     ("opencode", "glm"),
     ("dashscope", "qwen-max"),

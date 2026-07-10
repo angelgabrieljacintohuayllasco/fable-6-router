@@ -43,6 +43,7 @@ request → [Clasificador barato] (Gemini Flash)
 | **Vertex AI** | `gcloud auth application-default login` (sin API key) | Gemini 3.1 Pro, Gemini 3 Flash |
 | **OpenCode Go** | login con `opencode auth login` (plan de pago) | GLM 5.1, Qwen 3.6 Plus, DeepSeek v4, Kimi K2.6, Minimax M2.7 |
 | **Codex CLI** | login con `codex login` (plan ChatGPT) | GPT-5.6 Terra (necesita codex-cli ≥ 0.144.0; Sol y Luna no están disponibles con cuenta ChatGPT) |
+| **GitHub Copilot** | reusa el token OAuth de `opencode auth login` → "GitHub Copilot" (o `GITHUB_COPILOT_TOKEN`) — llamada nativa a `api.githubcopilot.com`, sin el overhead de ~35k tokens del CLI | Claude Sonnet 5, GPT-5.6 Terra **y Luna**, Gemini 3.1 Pro / 3.5 Flash, Kimi K2.7, Haiku 4.5 (plan Copilot Pro; Opus 4.8/Fable 5 aparecen pero deshabilitados) |
 | **Qwen Model Studio** (opcional) | API key gratis, env var `DASHSCOPE_API_KEY` | Qwen 3.7 Max (real, no via OpenCode) |
 
 Los adapters leen las credenciales que esas CLIs ya tienen guardadas — este
@@ -157,6 +158,13 @@ pierde progreso.
   (Sol responde "not supported when using Codex with a ChatGPT account" y
   Luna da 404). Además exige codex-cli ≥ 0.144.0 — versiones viejas reciben
   "requires a newer version of Codex". Actualizá con `codex update`.
+  **Luna sí está via GitHub Copilot** — por eso el adapter nativo de Copilot.
+- Copilot: los GPT-5.6 solo responden por la **Responses API** (`/responses`);
+  `/chat/completions` devuelve 400 "not accessible via the /chat/completions
+  endpoint". El adapter enruta por prefijo de modelo. El token OAuth de GitHub
+  (`gho_...`) viaja directo como Bearer a `api.githubcopilot.com` con
+  `X-GitHub-Api-Version: 2026-06-01` — ya no existe el exchange
+  `copilot_internal/v2/token` que usaban las guías viejas.
 - Los CLIs de OpenCode/Codex cargan un contexto de agente fijo (~35k tokens)
   en cada llamada — no los uses para clasificación barata, solo para
   completions reales.

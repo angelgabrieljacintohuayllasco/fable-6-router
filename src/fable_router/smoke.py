@@ -1,7 +1,7 @@
 """Fase 0 gate: one trivial prompt per provider. All green = adapters work."""
 from __future__ import annotations
 
-from .adapters import codex_cli, opencode_cli, vertex
+from .adapters import codex_cli, copilot, opencode_cli, vertex
 from .ledger import record
 
 PROMPT = "Responde solo con la palabra: OK"
@@ -30,8 +30,14 @@ def main() -> None:
     print("--- OpenCode Go (Qwen 3.6 Plus) ---")
     _report(opencode_cli.complete("qwen", PROMPT))
 
-    print("--- Codex CLI (GPT-5.5, ChatGPT plan Go) ---")
+    print("--- Codex CLI (GPT-5.6 Terra, ChatGPT plan Go) ---")
     _report(codex_cli.complete(PROMPT))
+
+    print("--- GitHub Copilot (Claude Sonnet 5) ---")
+    _report(copilot.complete("sonnet", PROMPT))
+
+    print("--- GitHub Copilot (GPT-5.6 Luna) ---")
+    _report(copilot.complete("luna", PROMPT))
 
 
 if __name__ == "__main__":

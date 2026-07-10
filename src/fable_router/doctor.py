@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import subprocess
 
+from .adapters.copilot import is_configured as copilot_configured
 from .adapters.dashscope import is_configured as dashscope_configured
 
 
@@ -60,6 +61,15 @@ def check_claude() -> tuple[bool, str]:
     return ok, ("" if ok else fix)
 
 
+def check_copilot() -> tuple[bool, str]:
+    ok = copilot_configured()
+    fix = (
+        "opencode auth login y elegí 'GitHub Copilot' (guarda el token OAuth "
+        "que este adapter reusa), o seteá GITHUB_COPILOT_TOKEN"
+    )
+    return ok, ("" if ok else fix)
+
+
 def check_dashscope() -> tuple[bool, str]:
     ok = dashscope_configured()
     fix = (
@@ -74,6 +84,7 @@ CHECKS: list[tuple[str, str]] = [
     ("Vertex AI (Gemini)", "check_vertex"),
     ("OpenCode Go (GLM/Qwen/DeepSeek/Kimi/Minimax)", "check_opencode"),
     ("Codex CLI (GPT-5.6 Terra)", "check_codex"),
+    ("GitHub Copilot (Sonnet 5/GPT-5.6/Kimi, via token de opencode)", "check_copilot"),
     ("Qwen Model Studio (opcional, qwen3.7-max)", "check_dashscope"),
 ]
 
@@ -82,6 +93,7 @@ _FUNCS = {
     "check_vertex": check_vertex,
     "check_opencode": check_opencode,
     "check_codex": check_codex,
+    "check_copilot": check_copilot,
     "check_dashscope": check_dashscope,
 }
 

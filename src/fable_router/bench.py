@@ -28,7 +28,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from .adapters import claude_cli, codex_cli, dashscope, opencode_cli, vertex
+from .adapters import claude_cli, codex_cli, copilot, dashscope, opencode_cli, vertex
 from .adapters.base import Result
 from . import router
 
@@ -45,6 +45,10 @@ ARMS: dict[str, callable] = {
     "glm": lambda p: opencode_cli.complete("glm", p),
     "qwen-oc": lambda p: opencode_cli.complete("qwen", p),
     "qwen-max": lambda p: dashscope.complete("qwen-max", p),
+    "copilot-sonnet": lambda p: copilot.complete("sonnet", p),
+    "copilot-terra": lambda p: copilot.complete("terra", p),
+    "copilot-luna": lambda p: copilot.complete("luna", p),
+    "copilot-kimi": lambda p: copilot.complete("kimi", p),
     "router": lambda p: router.ask(p, task_type="code"),
 }
 
