@@ -30,7 +30,8 @@ from pathlib import Path
 
 from .adapters import claude_cli, codex_cli, copilot, dashscope, opencode_cli, vertex
 from .adapters.base import Result
-from . import router
+from . import fable6, router
+from .ensemble import ask_ensemble
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_FILE = REPO_ROOT / "bench_data" / "HumanEval.jsonl.gz"
@@ -49,7 +50,12 @@ ARMS: dict[str, callable] = {
     "copilot-terra": lambda p: copilot.complete("terra", p),
     "copilot-luna": lambda p: copilot.complete("luna", p),
     "copilot-kimi": lambda p: copilot.complete("kimi", p),
+    "glm52": lambda p: opencode_cli.complete("glm52", p),
     "router": lambda p: router.ask(p, task_type="code"),
+    # "antes": MoA naive — mismos 5 workers de fable6, síntesis LLM (Claude).
+    "moa": lambda p: ask_ensemble(p, candidates=fable6.WORKERS),
+    # "después": Generar-Verificar-Seleccionar (ver fable6.py).
+    "fable6": lambda p: fable6.ask_fable6(p),
 }
 
 QUOTA_RE = re.compile(

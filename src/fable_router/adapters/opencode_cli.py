@@ -19,6 +19,7 @@ from .base import Result, run_ndjson_cli
 
 MODELS = {
     "glm": "opencode-go/glm-5.1",
+    "glm52": "opencode-go/glm-5.2",
     "qwen": "opencode-go/qwen3.6-plus",
     "deepseek": "opencode-go/deepseek-v4-pro",
     "deepseek-flash": "opencode-go/deepseek-v4-flash",
