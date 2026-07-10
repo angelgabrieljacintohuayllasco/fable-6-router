@@ -12,8 +12,9 @@ wheels/
 # Local data (prompts, tokens, cost)
 *.sqlite
 *.sqlite-*
+# Datasets descargados (no redistribuir); los RESULTADOS sí se commitean
+# (bench_results/) para transparencia de los benchmarks publicados.
 bench_data/
-bench_results/
 
 # Secrets / local config
 .env
