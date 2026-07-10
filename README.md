@@ -56,6 +56,7 @@ mismo ponés en `.env` y nunca se commitea).
 uv sync
 gcloud auth application-default login       # una vez, para Vertex
 opencode auth login -p opencode-go          # una vez, para GLM/Qwen/DeepSeek/Kimi/Minimax
+opencode auth login                          # otra vez, eligiendo "GitHub Copilot" (device flow)
 codex login                                  # una vez, para GPT-5.6 Terra (abre OAuth de ChatGPT)
 ```
 
